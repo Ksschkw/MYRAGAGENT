@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyRAGAgent GUI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #222222; /* Black background */
+            color: #d3d3d3; /* Silver text */
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            background-color: #333333; /* Darker black for container */
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 255, 127, 0.2); /* Green shadow */
+            width: 100%;
+            max-width: 700px;
+            border: 1px solid #00ff7f; /* Green border */
+        }
+        h1 {
+            text-align: center;
+            color: #00ff7f; /* Green title */
+            margin-bottom: 20px;
+            font-size: 24px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .input-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            font-size: 16px;
+            background-color: #444444; /* Darker input background */
+            color: #d3d3d3; /* Silver text */
+            border: 1px solid #00ff7f; /* Green border */
+            border-radius: 5px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        input[type="text"]:focus {
+            border-color: #00cc66; /* Darker green on focus */
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #00ff7f; /* Green button */
+            color: #222222; /* Black text */
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+        button:hover {
+            background-color: #00cc66; /* Darker green on hover */
+            transform: scale(1.05);
+        }
+        button:active {
+            transform: scale(0.95);
+        }
+        .clear-btn {
+            background-color: #d3d3d3; /* Silver clear button */
+            color: #222222; /* Black text */
+        }
+        .clear-btn:hover {
+            background-color: #b0b0b0; /* Darker silver on hover */
+        }
+        .response-section {
+            padding: 15px;
+            background-color: #444444; /* Darker response background */
+            border: 1px solid #00ff7f; /* Green border */
+            border-radius: 5px;
+            min-height: 100px;
+            margin-bottom: 20px;
+            animation: fadeIn 0.5s ease-in-out;
+            user-select: text; /* Enable text selection */
+        }
+        .response-section p {
+            margin: 5px 0;
+            color: #d3d3d3; /* Silver text */
+        }
+        .response-section strong {
+            color: #00ff7f; /* Green labels */
+        }
+        .copy-btn {
+            display: block;
+            margin: 10px auto 0;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+        .history-section {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 10px;
+            background-color: #444444; /* Dark history background */
+            border: 1px solid #00ff7f; /* Green border */
+            border-radius: 5px;
+        }
+        .history-item {
+            padding: 8px;
+            border-bottom: 1px solid #555555;
+            font-size: 14px;
+            color: #d3d3d3; /* Silver text */
+            user-select: text; /* Enable text selection */
+        }
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        .error {
+            color: #ff4444; /* Red for errors */
+        }
+        .loading {
+            color: #00ff7f; /* Green loading text */
+            text-align: center;
+        }
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s infinite;
+        }
+        @keyframes dots {
+            0% { content: '.'; }
+            33% { content: '..'; }
+            66% { content: '...'; }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        /* Scrollbar styling for history section */
+        .history-section::-webkit-scrollbar {
+            width: 8px;
+        }
+        .history-section::-webkit-scrollbar-track {
+            background: #333333;
+        }
+        .history-section::-webkit-scrollbar-thumb {
+            background: #00ff7f;
+            border-radius: 4px;
+        }
+        /* Responsive design */
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+            }
+            .input-section {
+                flex-direction: column;
+            }
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>MyRAGAgent Query Interface</h1>
+        <div class="input-section">
+            <input type="text" id="queryInput" placeholder="Enter your query (e.g., What languages does he write?)">
+            <button onclick="fetchResponse()">Submit</button>
+            <button class="clear-btn" onclick="clearInput()">Clear</button>
+        </div>
+        <div class="response-section" id="responseSection">
+            <p>Type a query and click Submit to see the response.</p>
+        </div>
+        <button class="copy-btn" id="copyBtn" onclick="copyResponse()" style="display: none;">Copy Response</button>
+        <div class="history-section" id="historySection">
+            <!-- Query history will be appended here -->
+        </div>
+    </div>
+
+    <script>
+        let history = [];
+
+        async function fetchResponse() {
+            const queryInput = document.getElementById('queryInput').value.trim();
+            const responseSection = document.getElementById('responseSection');
+            const copyBtn = document.getElementById('copyBtn');
+
+            // Validate input
+            if (!queryInput) {
+                responseSection.innerHTML = '<p class="error">Please enter a query.</p>';
+                copyBtn.style.display = 'none';
+                return;
+            }
+
+            // Show loading animation
+            responseSection.innerHTML = '<p class="loading">Loading</p>';
+            copyBtn.style.display = 'none';
+
+            try {
+                // URL-encode the query and construct the API URL
+                const encodedQuery = encodeURIComponent(queryInput);
+                const apiUrl = `https://p01--myragagent--qw5xhkblp8hy.code.run/query/${encodedQuery}`;
+
+                // Fetch the response from the API
+                const response = await fetch(apiUrl);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                const data = await response.json();
+
+                // Display the response
+                responseSection.innerHTML = `
+                    <p><strong>Query:</strong> ${data.query}</p>
+                    <p><strong>Response:</strong> ${data.response}</p>
+                `;
+                copyBtn.style.display = 'block';
+
+                // Add to history
+                history.push({ query: data.query, response: data.response });
+                updateHistory();
+            } catch (error) {
+                responseSection.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+                copyBtn.style.display = 'none';
+            }
+        }
+
+        function copyResponse() {
+            const responseText = document.querySelector('#responseSection p:last-child').textContent.replace('Response: ', '');
+            navigator.clipboard.writeText(responseText).then(() => {
+                alert('Response copied to clipboard!');
+            }).catch(err => {
+                alert('Failed to copy: ' + err);
+            });
+        }
+
+        function clearInput() {
+            const queryInput = document.getElementById('queryInput');
+            queryInput.value = '';
+            queryInput.focus();
+        }
+
+        function updateHistory() {
+            const historySection = document.getElementById('historySection');
+            historySection.innerHTML = '';
+            history.forEach((item, index) => {
+                const historyItem = document.createElement('div');
+                historyItem.className = 'history-item';
+                historyItem.innerHTML = `<strong>Query ${index + 1}:</strong> ${item.query}<br><strong>Response:</strong> ${item.response}`;
+                historySection.appendChild(historyItem);
+            });
+            historySection.scrollTop = historySection.scrollHeight; // Auto-scroll to latest
+        }
+
+        // Allow submitting the query with the Enter key
+        document.getElementById('queryInput').addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                fetchResponse();
+            }
+        });
+    </script>
+</body>
+</html>
