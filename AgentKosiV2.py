@@ -117,7 +117,17 @@ rag_agent = RagAgent(
 )
 
 # FastAPI setup for deployment
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://agentkosi.onrender.com/"],
+    allow_credentials=True,
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
 
 @app.get("/query/{query}")
 async def query_endpoint(query: str):
