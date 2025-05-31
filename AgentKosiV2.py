@@ -118,16 +118,31 @@ rag_agent = RagAgent(
 
 # FastAPI setup for deployment
 from fastapi.middleware.cors import CORSMiddleware
+import logging
+
+# Set up logging to confirm middleware application
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
+# Add CORS middleware
+logger.info("Applying CORS middleware with allow_origins=['*']")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5500/", "https://agentkosi.onrender.com/"],
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["GET"],
+    allow_methods=["GET", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# Add an explicit OPTIONS endpoint to handle preflight requests
+@app.options("/query/{query}")
+async def options_handler(query: str):
+    logger.info("Handling OPTIONS request for /query/{query}")
+    return {"status": "ok"}
+
+# Rest of your code (ensure your existing /query/{query} endpoint remains)
 
 @app.get("/query/{query}")
 async def query_endpoint(query: str):
