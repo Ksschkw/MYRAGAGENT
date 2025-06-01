@@ -11,6 +11,8 @@ from swarmauri.standard.agents.concrete.RagAgent import RagAgent
 from fastapi import FastAPI
 import uvicorn
 import sys
+import logging
+from fastapi.middleware.cors import CORSMiddleware
 
 # Load environment variables
 load_dotenv()
@@ -99,32 +101,41 @@ print(f"Default Name: {llm.name}")
 allowed_models = get_allowed_models(llm)
 print("Allowed Models: ", allowed_models)
 
-# Create a new system context for the RAG agent
+# Create a system context for the RAG agent
 rag_system_context = """Your name is kosisochukwu and you provide answers to the user. 
                         If the information is not available in the provided details, use your general knowledge to answer the question.
                         Never start replies with "According to the provided details" or similar phrases.
                      """
 
-# Create a new conversation for the RAG agent
-rag_conversation = MaxSystemContextConversation(system_context=SystemMessage(content=rag_system_context), max_size=100)
+# Dictionary to store conversations per session
+session_conversations = {}
 
-# Initialize the RAG Agent
-rag_agent = RagAgent(
-    llm=llm,
-    conversation=rag_conversation,
-    system_context=rag_system_context,
-    vector_store=vector_store,
-)
+# Function to get or create a conversation for a session
+def get_conversation(session_id: str) -> MaxSystemContextConversation:
+    if session_id not in session_conversations:
+        # Create a new conversation for this session
+        conversation = MaxSystemContextConversation(
+            system_context=SystemMessage(content=rag_system_context),
+            max_size=100
+        )
+        session_conversations[session_id] = {
+            "conversation": conversation,
+            "agent": RagAgent(
+                llm=llm,
+                conversation=conversation,
+                system_context=rag_system_context,
+                vector_store=vector_store,
+            )
+        }
+        logger.info(f"Created new conversation for session: {session_id}")
+    return session_conversations[session_id]
 
 # FastAPI setup for deployment
-from fastapi.middleware.cors import CORSMiddleware
-import logging
+app = FastAPI()
 
-# Set up logging to confirm middleware application
+# Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-app = FastAPI()
 
 # Add CORS middleware
 logger.info("Applying CORS middleware with allow_origins=['*']")
@@ -142,24 +153,43 @@ async def options_handler(query: str):
     logger.info("Handling OPTIONS request for /query/{query}")
     return {"status": "ok"}
 
-# Rest of your code (ensure your existing /query/{query} endpoint remains)
-
 @app.get("/query/{query}")
 async def query_endpoint(query: str):
-    response = rag_agent.exec(query)
-    return {"query": query, "response": response}
+    # Extract session_id from query (format: session_id:actual_query)
+    if ":" not in query:
+        raise ValueError("Session ID must be provided in the format 'session_id:query'")
+    
+    session_id, actual_query = query.split(":", 1)
+    logger.info(f"Processing query for session {session_id}: {actual_query}")
+
+    # Special query to reset the conversation
+    if actual_query == "__NEW_CHAT__":
+        if session_id in session_conversations:
+            del session_conversations[session_id]
+            logger.info(f"Conversation reset for session: {session_id}")
+        return {"query": actual_query, "response": "New chat started! Ask me anything."}
+
+    # Get or create conversation and agent for this session
+    session_data = get_conversation(session_id)
+    rag_agent = session_data["agent"]
+
+    # Execute the query
+    response = rag_agent.exec(actual_query)
+    return {"query": actual_query, "response": response}
 
 # Interactive loop for local testing
 def run_interactive_loop():
     print("Welcome to the RAG Agent! Type 'exit' to quit.")
+    session_id = "local_test_session"  # Dummy session for local testing
     while True:
         query = input("Enter your query: ")
         if query.lower() == 'exit':
             print("Goodbye!")
             break
         try:
-            response = rag_agent.exec(query)
-            print(f"Query: {query}\nRAG Agent Response: {response}\n")
+            full_query = f"{session_id}:{query}"
+            response = app.get("/query/{query}").function(full_query)
+            print(f"Query: {query}\nRAG Agent Response: {response['response']}\n")
         except Exception as e:
             print(f"Error processing query: {e}\n")
 
