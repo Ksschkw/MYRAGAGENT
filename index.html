@@ -22,7 +22,7 @@
             align-items: center;
         }
         .chat-container {
-            background-color: rgba(42, 46, 64, 0.9); /* Semi-transparent dark overlay */
+            background-color: rgba(42, 46, 64, 0.9);
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
@@ -31,11 +31,11 @@
             height: 80vh;
             display: flex;
             flex-direction: column;
-            border: 2px solid #d3d3d3; /* Silver border */
+            border: 2px solid #d3d3d3;
         }
         .chat-header {
             text-align: center;
-            color: #d3d3d3; /* Silver header */
+            color: #d3d3d3;
             margin-bottom: 15px;
             font-size: 24px;
             font-weight: bold;
@@ -50,8 +50,8 @@
             flex: 1;
             overflow-y: auto;
             padding: 10px;
-            background-color: #1c2526; /* Black for messages */
-            border: 1px solid #d3d3d3; /* Silver border */
+            background-color: #1c2526;
+            border: 1px solid #d3d3d3;
             border-radius: 5px;
             margin-bottom: 10px;
         }
@@ -64,14 +64,14 @@
             animation: fadeIn 0.3s ease-in-out;
         }
         .user-message {
-            background-color: #d3d3d3; /* Silver for user messages */
-            color: #1c2526; /* Black text */
+            background-color: #d3d3d3;
+            color: #1c2526;
             margin-left: auto;
         }
         .bot-message {
-            background-color: #4a90e2; /* Grok-inspired blue */
-            color: #ffffff; /* White text */
-            font-style: italic; /* A nod to my thoughtful tone */
+            background-color: #4a90e2;
+            color: #ffffff;
+            font-style: italic;
         }
         .input-section {
             display: flex;
@@ -81,31 +81,31 @@
             flex: 1;
             padding: 10px;
             font-size: 16px;
-            background-color: #2a2e40; /* Darker starry night */
-            color: #ffffff; /* White text */
-            border: 1px solid #d3d3d3; /* Silver border */
+            background-color: #2a2e40;
+            color: #ffffff;
+            border: 1px solid #d3d3d3;
             border-radius: 5px;
             outline: none;
             transition: border-color 0.3s;
         }
         input[type="text"]::placeholder {
-            color: #a9a9a9; /* Lighter silver placeholder */
+            color: #a9a9a9;
         }
         input[type="text"]:focus {
-            border-color: #ffffff; /* White on focus */
+            border-color: #ffffff;
         }
         button {
             padding: 10px 20px;
             font-size: 16px;
-            background-color: #d3d3d3; /* Silver button */
-            color: #1c2526; /* Black text */
+            background-color: #d3d3d3;
+            color: #1c2526;
             border: none;
             border-radius: 5px;
             cursor: pointer;
             transition: background-color 0.3s, transform 0.1s;
         }
         button:hover {
-            background-color: #a9a9a9; /* Darker silver on hover */
+            background-color: #a9a9a9;
             transform: scale(1.05);
         }
         button:active {
@@ -113,11 +113,11 @@
         }
         .new-chat-btn {
             margin-top: 10px;
-            background-color: #4a90e2; /* Grok blue for new chat */
-            color: #ffffff; /* White text */
+            background-color: #4a90e2;
+            color: #ffffff;
         }
         .new-chat-btn:hover {
-            background-color: #357abd; /* Darker blue on hover */
+            background-color: #357abd;
         }
         .copy-btn {
             margin-left: 10px;
@@ -126,12 +126,12 @@
             display: none;
         }
         .error {
-            color: #ff4444; /* Red for errors */
+            color: #ff4444;
             text-align: center;
             margin-top: 10px;
         }
         .loading {
-            color: #d3d3d3; /* Silver loading text */
+            color: #d3d3d3;
             text-align: center;
             margin-top: 10px;
         }
@@ -191,6 +191,8 @@
     </div>
 
     <script>
+        // Generate a unique session ID for this browser session
+        const sessionId = 'user_' + Math.random().toString(36).substr(2, 9);
         let messages = [];
 
         function addMessage(isUser, text) {
@@ -220,7 +222,7 @@
             chatMessages.innerHTML += '<div class="loading">Thinking across the universe...</div>';
 
             try {
-                const encodedQuery = encodeURIComponent(queryInput);
+                const encodedQuery = encodeURIComponent(`${sessionId}:${queryInput}`);
                 const apiUrl = `https://p01--myragagent--qw5xhkblp8hy.code.run/query/${encodedQuery}`;
                 console.log('Fetching from:', apiUrl);
 
@@ -278,11 +280,26 @@
             });
         }
 
-        function startNewChat() {
+        async function startNewChat() {
             if (confirm('Start a new chat and erase the universe? Confirm?')) {
                 messages = [];
                 document.getElementById('chatMessages').innerHTML = '';
                 document.getElementById('copyBtn').style.display = 'none';
+
+                // Send new chat request to API
+                const apiUrl = `https://p01--myragagent--qw5xhkblp8hy.code.run/query/${encodeURIComponent(sessionId + ':__NEW_CHAT__')}`;
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'GET',
+                        mode: 'cors',
+                        cache: 'no-cache',
+                    });
+                    const data = await response.json();
+                    addMessage(false, data.response);
+                } catch (error) {
+                    chatMessages.innerHTML += '<div class="error">Failed to start new chat: ' + error.message + '</div>';
+                    console.error('New chat error:', error);
+                }
                 alert('New chat begun—let’s explore anew!');
             }
         }
