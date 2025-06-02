@@ -9,6 +9,7 @@ from swarmauri.standard.conversations.concrete.Conversation import Conversation
 from dotenv import load_dotenv
 from swarmauri.standard.agents.concrete.RagAgent import RagAgent
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 import uvicorn
 import sys
 import logging
@@ -48,6 +49,8 @@ documents = [
     Document(content="He is from earth, i am not a martian"),
     Document(content="His name is kosisochukwu"),
     Document(content="His github page is at github.com/Ksschkw"),
+    Document(content="His favorite Anime is Naruto."),
+    Document(content="His top 10 anime are: Naruto, Attack on Titan, One Piece, Demon Slayer, Bleach, Erased, Black Clover, Dr. Stone, Death note, and monster.  Manga/Manhua: Boruto, Vagabond, Black Clover, solo leveling, chainswa man? "),
 ]
 
 # Add small documents to the vector store
@@ -105,6 +108,7 @@ print("Allowed Models: ", allowed_models)
 rag_system_context = """Your name is kosisochukwu and you provide answers to the user. 
                         If the information is not available in the provided details, use your general knowledge to answer the question.
                         Never start replies with "According to the provided details" or similar phrases.
+                        Always be casual.
                      """
 
 # Dictionary to store conversations per session
@@ -181,6 +185,7 @@ async def query_endpoint(query: str):
 def run_interactive_loop():
     print("Welcome to the RAG Agent! Type 'exit' to quit.")
     session_id = "local_test_session"  # Dummy session for local testing
+    client = TestClient(app)  # Create a TestClient instance
     while True:
         query = input("Enter your query: ")
         if query.lower() == 'exit':
@@ -188,8 +193,13 @@ def run_interactive_loop():
             break
         try:
             full_query = f"{session_id}:{query}"
-            response = app.get("/query/{query}").function(full_query)
-            print(f"Query: {query}\nRAG Agent Response: {response['response']}\n")
+            # Use TestClient to make a GET request
+            response = client.get(f"/query/{full_query}")
+            if response.status_code == 200:
+                data = response.json()
+                print(f"Query: {query}\nRAG Agent Response: {data['response']}\n")
+            else:
+                print(f"Error: {response.status_code} - {response.text}\n")
         except Exception as e:
             print(f"Error processing query: {e}\n")
 

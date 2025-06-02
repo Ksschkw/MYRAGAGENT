@@ -5,10 +5,10 @@
 Welcome to **MYRAGAGENT**, a project that implements a **Retrieval-Augmented Generation (RAG) Agent** using the `swarmauri` library and the Groq API from Groq, Inc. This agent combines a TF-IDF vector store for document retrieval with a conversational AI model to provide intelligent, context-aware responses based on personal details about the developer, Kosisochukwu. The project has evolved through multiple iterations, supporting local testing, interactive querying, and deployment via Docker on Northflank.
 
 Key files include:
-- **`AgentKosiV1.py`**: Initial implementation with basic document handling and query processing.
-- **`AgentKosiV2.py`**: Enhanced version with large document chunking, an interactive query loop, and a FastAPI interface for deployment.
-- **`RAG_Agent.ipynb`**: Jupyter Notebook for step-by-step development and testing.
-- **`RAG_Agent.py`**: Early standalone script consolidating notebook functionality.
+- **`AgentKosiV1.py`**: Initial version of the RAG agent with basic document handling and query processing.
+- **`AgentKosiV2.py`**: Enhanced and final version of the RAG agent, featuring large document chunking, session-based conversation management, an interactive query loop for local testing, and a FastAPI interface for deployment.
+- **`RAG_Agent.ipynb`**: Jupyter Notebook for step-by-step development and testing of the RAG agent.
+- **`RAG_Agent.py`**: Early standalone script that consolidates the functionality from the notebook.
 
 The RAG agent answers queries about programming skills, database usage, deployment platforms, education, hobbies, and more, leveraging both document data and the Groq model's general knowledge.
 
@@ -132,6 +132,19 @@ pip install -r requirements.txt
      ```
    - Processes predefined queries and prints responses.
 
+4. **Local Testing with `TestClient`**:
+   - The interactive loop in `AgentKosiV2.py` uses FastAPI’s `TestClient` to simulate HTTP requests, allowing you to test the API locally without starting a server.
+
+### Deployed Versions
+
+The application is deployed and accessible online:
+
+- **API Endpoint**: Query the RAG agent directly at [https://p01--myragagent--qw5xhkblp8hy.code.run/query/{query}](https://p01--myragagent--qw5xhkblp8hy.code.run/query/{query}). Replace `{query}` with your question. For example:
+  - [https://p01--myragagent--qw5xhkblp8hy.code.run/query/What+languages+does+he+write?](https://p01  - https://p01--myragagent--qw5xhkblp8hy.code.run/query/What+languages+does+he+write?)
+  - [https://p01--myragagent--qw5xhkblp8hy.code.run/query/What+is+his+GitHub?](https://p01--myragagent--qw5xhkblp8hy.code.run/query/What+is+his+GitHub?)
+
+- **Web GUI**: Access the interactive interface at [https://agentkosi.onrender.com/](https://agentkosi.onrender.com/). Enter your queries in the provided input field to interact with the RAG agent.
+
 ### Example Queries
 - "What languages does he write?"
 - "What database does he use?"
@@ -142,14 +155,14 @@ pip install -r requirements.txt
 
 ## Project Structure
 
-- `AgentKosiV1.py`: Initial RAG agent implementation.
-- `AgentKosiV2.py`: Enhanced version with chunking, interactive loop, and FastAPI.
-- `RAG_Agent.ipynb`: Notebook for development.
-- `RAG_Agent.py`: Early standalone script.
+- **`AgentKosiV1.py`**: Initial RAG agent implementation with basic functionality.
+- **`AgentKosiV2.py`**: Enhanced version with chunking, session management, interactive loop, and FastAPI.
+- **`RAG_Agent.ipynb`**: Notebook for development and testing.
+- **`RAG_Agent.py`**: Early standalone script.
+- **`start.sh`**: Shell script to start the FastAPI server for deployment.
+- **`Dockerfile`**: Configuration for containerizing the application.
 - `.env`: Local environment file (not committed).
 - `requirements.txt`: Dependency list.
-- `Dockerfile`: Container configuration.
-- `start.sh`: Startup script (optional, see deployment).
 - `README.md`: This documentation.
 
 ## Deployment
@@ -201,7 +214,7 @@ RUN pip install --no-cache-dir --upgrade pip \
     && rm -rf /root/.cache/pip
 COPY . .
 ENV GROQ_API_KEY=${GROQ_API_KEY}
-CMD ["python", "AgentKosiV2.py", "--server"]
+CMD ["sh", "start.sh"]
 ```
 
 ### .dockerignore
@@ -239,8 +252,6 @@ For questions or feedback, contact Kosisochukwu via:
 
 ## Future Plans
 
-- Optimize document chunking for improved context retention.
-- Explore additional vector stores (e.g., Faiss) for scalability.
-- Add query response time visualization.
-- Expand deployment options (e.g., AWS, Render).
-- Implement user authentication for the API.
+- **Session Persistence**: Store session data in a database (e.g., SQLite) for long-term conversation history.
+- **Improved Chunking**: Experiment with different chunk sizes or overlap strategies for better retrieval accuracy.
+- **Multi-Model Support**: Allow switching between different Groq models dynamically.
