@@ -88,7 +88,7 @@ for i, chunk in enumerate(chunks):
 print(f"{len(vector_store.get_all_documents())} documents added to the vector store")
 
 # Initialize the GroqModel
-llm = LLM(api_key=API_KEY, name='mixtral-8x7b-32768')
+llm = LLM(api_key=API_KEY, name='llama-3.3-70b-versatile')
 
 # Function to get allowed models
 def get_allowed_models(llm):
