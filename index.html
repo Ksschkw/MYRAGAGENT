@@ -442,13 +442,19 @@
             showTypingIndicator(true);
             
             try {
-                const encodedQuery = encodeURIComponent(`${sessionId}:${queryInput}`);
-                const apiUrl = `p01--ragkss--qw5xhkblp8hy.code.run/query/${encodedQuery}`;
-                
+                const apiUrl = 'https://p01--ragkss--qw5xhkblp8hy.code.run/query';
                 const response = await fetch(apiUrl, {
-                    method: 'GET',
+                    method: 'POST',
                     mode: 'cors',
                     cache: 'no-cache',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        query: queryInput,
+                        session_id: sessionId
+                    })
                 });
                 
                 if (!response.ok) {
@@ -485,11 +491,19 @@
                 document.getElementById('chatMessages').innerHTML = '';
                 
                 try {
-                    const apiUrl = `https://p01--myragagent--qw5xhkblp8hy.code.run/query/${encodeURIComponent(sessionId + ':__NEW_CHAT__')}`;
+                    const apiUrl = 'https://p01--ragkss--qw5xhkblp8hy.code.run/query';
                     await fetch(apiUrl, {
-                        method: 'GET',
+                        method: 'POST',
                         mode: 'cors',
                         cache: 'no-cache',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            query: '__NEW_CHAT__',
+                            session_id: sessionId
+                        })
                     });
                 } catch (error) {
                     console.error('New chat error:', error);
