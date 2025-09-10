@@ -57,6 +57,15 @@
             color: #b0b0ff;
         }
         
+        .chat-header a {
+            color: #8e8eff;
+            text-decoration: none;
+        }
+        
+        .chat-header a:hover {
+            text-decoration: underline;
+        }
+        
         .chat-messages {
             flex: 1;
             overflow-y: auto;
@@ -217,7 +226,6 @@
             opacity: 0;
             transition: opacity 0.3s;
             cursor: pointer;
-           
         }
 
         .copy-btn:active{
@@ -226,7 +234,6 @@
         
         .bot-message:hover .copy-btn {
             opacity: 1;
-
         }
         
         .typing-indicator {
@@ -285,6 +292,10 @@
                 width: 100%;
                 justify-content: center;
             }
+            
+            .typing-indicator {
+                padding: 15px 100px;
+            }
         }
 
         
@@ -319,6 +330,11 @@
         
         .notification.show {
             transform: translateX(0);
+        }
+        
+        .error-message {
+            color: #ff6b6b;
+            font-style: italic;
         }
     </style>
 </head>
@@ -361,7 +377,7 @@
             <div class="input-wrapper">
                 <input type="text" id="queryInput" placeholder="Ask me anything..." autofocus>
             </div>
-            <button onclick="sendMessage()"><i class="fas fa-paper-plane"></i> Send</button>
+            <button id="sendButton" onclick="sendMessage()"><i class="fas fa-paper-plane"></i> Send</button>
         </div>
         
         <button class="new-chat-btn" onclick="startNewChat()">
@@ -370,9 +386,9 @@
     </div>
 
     <script>
-        // Generate a unique session ID
-        const sessionId = 'user_' + Math.random().toString(36).substr(2, 9);
+        let sessionId = 'user_' + Math.random().toString(36).substr(2, 9);
         let messages = [];
+        let isWaitingForResponse = false;
         
         // Add message with Markdown rendering
         function addMessage(isUser, text) {
@@ -388,7 +404,7 @@
             
             messageDiv.innerHTML = `
                 <div class="message-content">${contentHTML}</div>
-                <div class="copy-btn" onclick="copyMessage(this)"><i class="fas fa-copy"></i></div>
+                ${!isUser ? '<div class="copy-btn" onclick="copyMessage(this)"><i class="fas fa-copy"></i></div>' : ''}
             `;
             
             chatMessages.appendChild(messageDiv);
@@ -426,17 +442,25 @@
         
         // Send message to API
         async function sendMessage() {
-            const queryInput = document.getElementById('queryInput').value.trim();
-            const chatMessages = document.getElementById('chatMessages');
+            if (isWaitingForResponse) return;
             
-            if (!queryInput) {
+            const queryInput = document.getElementById('queryInput');
+            const query = queryInput.value.trim();
+            const sendButton = document.getElementById('sendButton');
+            
+            if (!query) {
                 showNotification('Please enter a question');
                 return;
             }
             
+            // Disable input while waiting for response
+            queryInput.disabled = true;
+            sendButton.disabled = true;
+            isWaitingForResponse = true;
+            
             // Add user message
-            addMessage(true, queryInput);
-            document.getElementById('queryInput').value = '';
+            addMessage(true, query);
+            queryInput.value = '';
             
             // Show typing indicator
             showTypingIndicator(true);
@@ -445,69 +469,68 @@
                 const apiUrl = 'https://p01--ragkss--qw5xhkblp8hy.code.run/query';
                 const response = await fetch(apiUrl, {
                     method: 'POST',
-                    mode: 'cors',
-                    cache: 'no-cache',
                     headers: {
                         'Accept': 'application/json',
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        query: queryInput,
+                        query: query,
                         session_id: sessionId
                     })
                 });
                 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    throw new Error(`Error: ${response.status}, ${errorText}`);
+                    throw new Error(`Server error: ${response.status}, ${errorText}`);
                 }
                 
                 const contentType = response.headers.get('content-type');
                 if (!contentType || !contentType.includes('application/json')) {
                     const text = await response.text();
-                    throw new Error(`Response format error: ${text.substring(0, 100)}...`);
+                    throw new Error(`Unexpected response format: ${text.substring(0, 100)}...`);
                 }
                 
                 const data = await response.json();
+                
+                // Update session ID if the server returned a different one
+                if (data.session_id && data.session_id !== sessionId) {
+                    sessionId = data.session_id;
+                }
+                
                 if (!data.response) {
-                    throw new Error('No response found in the data');
+                    throw new Error('No response found in the server response');
                 }
                 
                 // Hide typing indicator and add bot response
                 showTypingIndicator(false);
                 addMessage(false, data.response);
-                messages.push({ user: queryInput, bot: data.response });
+                messages.push({ user: query, bot: data.response });
+                
             } catch (error) {
                 showTypingIndicator(false);
-                addMessage(false, `Error: ${error.message}`);
+                addMessage(false, `<p class="error-message">Sorry, I encountered an error: ${error.message}</p>`);
                 console.error('API error:', error);
+            } finally {
+                // Re-enable input
+                queryInput.disabled = false;
+                sendButton.disabled = false;
+                isWaitingForResponse = false;
+                queryInput.focus();
             }
         }
         
         // Start a new chat
-        async function startNewChat() {
+        function startNewChat() {
+            if (isWaitingForResponse) return;
+            
             if (confirm('Start a new conversation? Your current chat will be cleared.')) {
+                // Generate a new session ID
+                sessionId = 'user_' + Math.random().toString(36).substr(2, 9);
                 messages = [];
-                document.getElementById('chatMessages').innerHTML = '';
                 
-                try {
-                    const apiUrl = 'https://p01--ragkss--qw5xhkblp8hy.code.run/query';
-                    await fetch(apiUrl, {
-                        method: 'POST',
-                        mode: 'cors',
-                        cache: 'no-cache',
-                        headers: {
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            query: '__NEW_CHAT__',
-                            session_id: sessionId
-                        })
-                    });
-                } catch (error) {
-                    console.error('New chat error:', error);
-                }
+                // Clear chat messages
+                const chatMessages = document.getElementById('chatMessages');
+                chatMessages.innerHTML = '';
                 
                 // Add new welcome message
                 addMessage(false, "New conversation started. What would you like to know?");
@@ -517,11 +540,16 @@
         // Initialize the app
         document.addEventListener('DOMContentLoaded', () => {
             // Set up event listeners
-            document.getElementById('queryInput').addEventListener('keypress', function(event) {
-                if (event.key === 'Enter') {
+            const queryInput = document.getElementById('queryInput');
+            
+            queryInput.addEventListener('keypress', function(event) {
+                if (event.key === 'Enter' && !isWaitingForResponse) {
                     sendMessage();
                 }
             });
+            
+            // Focus input on load
+            queryInput.focus();
         });
     </script>
 </body>
