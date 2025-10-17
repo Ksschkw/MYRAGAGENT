@@ -99,6 +99,11 @@
             padding-top: 23px;
         }
         
+        .streaming-message {
+            background: rgba(36, 37, 41, 0.5);
+            border: 1px dashed rgba(128, 128, 255, 0.3);
+        }
+        
         .message-content {
             line-height: 1.6;
         }
@@ -181,6 +186,11 @@
             box-shadow: 0 0 0 2px rgba(194, 203, 212, 0.3);
         }
         
+        input[type="text"]:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
         button {
             padding: 14px 24px;
             font-size: 1rem;
@@ -198,6 +208,12 @@
         
         button:hover {
             background: linear-gradient(135deg, #5a9df2, #458acd);
+        }
+        
+        button:disabled {
+            background: linear-gradient(135deg, #666, #555);
+            cursor: not-allowed;
+            opacity: 0.6;
         }
         
         .new-chat-btn {
@@ -244,6 +260,8 @@
             border-radius: 18px;
             width: fit-content;
             border-bottom-left-radius: 5px;
+            align-items: center;
+            gap: 10px;
         }
         
         .typing-indicator span {
@@ -252,8 +270,11 @@
             border-radius: 50%;
             background: #4a90e2;
             display: inline-block;
-            margin-right: 5px;
             animation: typing 1.5s infinite;
+        }
+        
+        .typing-indicator span:nth-child(1) {
+            animation-delay: 0s;
         }
         
         .typing-indicator span:nth-child(2) {
@@ -272,6 +293,21 @@
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes streamPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .streaming-cursor {
+            display: inline-block;
+            width: 8px;
+            height: 1.2em;
+            background: #4a90e2;
+            margin-left: 2px;
+            animation: streamPulse 1s infinite;
+            vertical-align: middle;
         }
         
         @media (max-width: 768px) {
@@ -389,6 +425,7 @@
         let sessionId = 'user_' + Math.random().toString(36).substr(2, 9);
         let messages = [];
         let isWaitingForResponse = false;
+        let currentStreamingMessage = null;
         
         // Add message with Markdown rendering
         function addMessage(isUser, text) {
@@ -409,12 +446,55 @@
             
             chatMessages.appendChild(messageDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
+            return messageDiv;
+        }
+        
+        // Create streaming message
+        function createStreamingMessage() {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message bot-message streaming-message';
+            messageDiv.innerHTML = `
+                <div class="message-content"><span class="streaming-cursor"></span></div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            return messageDiv;
+        }
+        
+        // Update streaming message content
+        function updateStreamingMessage(messageDiv, text) {
+            const contentDiv = messageDiv.querySelector('.message-content');
+            const sanitizedHTML = DOMPurify.sanitize(marked.parse(text));
+            contentDiv.innerHTML = sanitizedHTML + '<span class="streaming-cursor"></span>';
+            
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // Finalize streaming message
+        function finalizeStreamingMessage(messageDiv, text) {
+            messageDiv.classList.remove('streaming-message');
+            const contentDiv = messageDiv.querySelector('.message-content');
+            const sanitizedHTML = DOMPurify.sanitize(marked.parse(text));
+            contentDiv.innerHTML = sanitizedHTML;
+            
+            // Add copy button
+            const copyBtn = document.createElement('div');
+            copyBtn.className = 'copy-btn';
+            copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+            copyBtn.onclick = function() { copyMessage(this); };
+            messageDiv.appendChild(copyBtn);
         }
         
         // Show typing indicator
         function showTypingIndicator(show) {
             const typingIndicator = document.getElementById('typingIndicator');
             typingIndicator.style.display = show ? 'flex' : 'none';
+            
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.scrollTop = chatMessages.scrollHeight;
         }
         
         // Copy message to clipboard
@@ -440,13 +520,31 @@
             }, 2000);
         }
         
-        // Send message to API
+        // Set input state
+        function setInputState(enabled) {
+            const queryInput = document.getElementById('queryInput');
+            const sendButton = document.getElementById('sendButton');
+            
+            isWaitingForResponse = !enabled;
+            queryInput.disabled = !enabled;
+            sendButton.disabled = !enabled;
+            
+            if (enabled) {
+                queryInput.placeholder = "Ask me anything...";
+                sendButton.innerHTML = '<i class="fas fa-paper-plane"></i> Send';
+                queryInput.focus();
+            } else {
+                queryInput.placeholder = "AI is thinking...";
+                sendButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            }
+        }
+        
+        // Send message to streaming API
         async function sendMessage() {
             if (isWaitingForResponse) return;
             
             const queryInput = document.getElementById('queryInput');
             const query = queryInput.value.trim();
-            const sendButton = document.getElementById('sendButton');
             
             if (!query) {
                 showNotification('Please enter a question');
@@ -454,23 +552,21 @@
             }
             
             // Disable input while waiting for response
-            queryInput.disabled = true;
-            sendButton.disabled = true;
-            isWaitingForResponse = true;
+            setInputState(false);
             
             // Add user message
             addMessage(true, query);
             queryInput.value = '';
             
-            // Show typing indicator
+            // Show typing indicator briefly
             showTypingIndicator(true);
             
             try {
-                const apiUrl = 'https://p01--ragkss--qw5xhkblp8hy.code.run/query';
+                const apiUrl = 'https://p01--ragkss--qw5xhkblp8hy.code.run/stream';
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
-                        'Accept': 'application/json',
+                        'Accept': 'text/event-stream',
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
@@ -484,44 +580,70 @@
                     throw new Error(`Server error: ${response.status}, ${errorText}`);
                 }
                 
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    const text = await response.text();
-                    throw new Error(`Unexpected response format: ${text.substring(0, 100)}...`);
-                }
-                
-                const data = await response.json();
-                
-                // Update session ID if the server returned a different one
-                if (data.session_id && data.session_id !== sessionId) {
-                    sessionId = data.session_id;
-                }
-                
-                if (!data.response) {
-                    throw new Error('No response found in the server response');
-                }
-                
-                // Hide typing indicator and add bot response
+                // Hide typing indicator
                 showTypingIndicator(false);
-                addMessage(false, data.response);
-                messages.push({ user: query, bot: data.response });
+                
+                // Create streaming message
+                currentStreamingMessage = createStreamingMessage();
+                let accumulatedText = '';
+                
+                // Handle streaming response
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                while (true) {
+                    const { value, done } = await reader.read();
+                    
+                    if (done) break;
+                    
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                
+                                if (data.chunk) {
+                                    accumulatedText += data.chunk;
+                                    updateStreamingMessage(currentStreamingMessage, accumulatedText);
+                                }
+                                
+                                if (data.done) {
+                                    finalizeStreamingMessage(currentStreamingMessage, accumulatedText);
+                                    messages.push({ user: query, bot: accumulatedText });
+                                    break;
+                                }
+                            } catch (e) {
+                                console.error('Error parsing SSE data:', e);
+                            }
+                        }
+                    }
+                }
                 
             } catch (error) {
                 showTypingIndicator(false);
+                
+                // Remove streaming message if it exists
+                if (currentStreamingMessage) {
+                    currentStreamingMessage.remove();
+                }
+                
                 addMessage(false, `<p class="error-message">Sorry, I encountered an error: ${error.message}</p>`);
                 console.error('API error:', error);
             } finally {
                 // Re-enable input
-                queryInput.disabled = false;
-                sendButton.disabled = false;
-                isWaitingForResponse = false;
-                queryInput.focus();
+                setInputState(true);
+                currentStreamingMessage = null;
             }
         }
         
         // Start a new chat
         function startNewChat() {
-            if (isWaitingForResponse) return;
+            if (isWaitingForResponse) {
+                showNotification('Please wait for the current response to complete');
+                return;
+            }
             
             if (confirm('Start a new conversation? Your current chat will be cleared.')) {
                 // Generate a new session ID
@@ -534,6 +656,8 @@
                 
                 // Add new welcome message
                 addMessage(false, "New conversation started. What would you like to know?");
+                
+                showNotification('New conversation started!');
             }
         }
         
