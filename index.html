@@ -426,6 +426,15 @@
         let messages = [];
         let isWaitingForResponse = false;
         let currentStreamingMessage = null;
+
+        // Override marked.js to open all links in a new tab
+        marked.use({
+            renderer: {
+                link(href, title, text) {
+                    return `<a href="${href}" ${title ? `title="${title}"` : ''} target="_blank" rel="noopener noreferrer">${text}</a>`;
+                }
+            }
+        });
         
         // Add message with Markdown rendering
         function addMessage(isUser, text) {
