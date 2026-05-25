@@ -427,10 +427,15 @@
         let isWaitingForResponse = false;
         let currentStreamingMessage = null;
 
-        // Override marked.js to open all links in a new tab
+        // Override marked.js to open all links in a new tab (Updated for Latest Marked API)
         marked.use({
             renderer: {
-                link(href, title, text) {
+                link(token) {
+                    // Check if using newer API (token object) or older API fallback
+                    const href = typeof token === 'object' ? token.href : arguments[0];
+                    const title = typeof token === 'object' ? token.title : arguments[1];
+                    const text = typeof token === 'object' ? token.text : arguments[2];
+                    
                     return `<a href="${href}" ${title ? `title="${title}"` : ''} target="_blank" rel="noopener noreferrer">${text}</a>`;
                 }
             }
